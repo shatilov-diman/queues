@@ -1,0 +1,12 @@
+{
+  "name": "simplest",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+	"scripts": {
+		"serve": "node index.js"
+	},
+  "dependencies": {
+    "ws": "^7.3.1"
+  }
+}
