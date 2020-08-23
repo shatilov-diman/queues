@@ -1,61 +1,49 @@
 
-use log::{info};
+use log::{error, info, debug};
 
 use websocket::client::ClientBuilder;
 use websocket::{OwnedMessage};
 
-use crossbeam_channel::unbounded;
-
 const CONNECTION: &str = "ws://127.0.0.1:8888";
 
-type Result<T> = std::result::Result<T, String>;
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn main() -> Result<()> {
-	simple_logger::init_with_level(log::Level::Info).map_err(|e| format!("->{:?}", e))?;
+	simple_logger::init_with_level(log::Level::Error)?;
 
 	let client =
-		ClientBuilder::new(CONNECTION).map_err(|e| format!("{}", e))?
-		.connect_insecure().map_err(|e| format!("{}", e))?;
+		ClientBuilder::new(CONNECTION)?
+		.connect_insecure()?;
 
-		let (mut receiver, mut sender) = client.split().map_err(|e| format!("{}", e))?;
-		let (s, r) = unbounded();
-		let ss = s.clone();
+		let (mut receiver, mut sender) = client.split()?;
 
-		let send_thread = std::thread::spawn(move || -> Result<()> {
-			while let Ok(ref m) = r.recv() {
-				match &m {
-					OwnedMessage::Text(t) => info!("->{}", t),
-					_ => info!("{:?}", m),
+		let max_messages = 1000000;
+
+		let send_thread = std::thread::spawn(move || {
+			for i in 0..max_messages {
+				if let Err(e) = sender.send_message(&OwnedMessage::Text(i.to_string())) {
+					error!("{}", e);
+					break;
 				}
-				sender.send_message(m).map_err(|e| format!("->{:?}", e))?;
 			}
-			println!("send_thread exit");
-			Ok(())
+			debug!("send_thread exit");
 		});
 
-		let recv_thread = std::thread::spawn(move || -> Result<()> {
-			for message in receiver.incoming_messages() {
+		let recv_thread = std::thread::spawn(move || {
+			for message in receiver.incoming_messages().take(max_messages) {
 				match message {
-					Err(e) => return Err(format!("{}", e)),
-					Ok(OwnedMessage::Close(_)) => return Ok(()),
-					Ok(OwnedMessage::Ping(data)) => s.send(OwnedMessage::Pong(data)).map_err(|e| format!("{}", e))?,
-					Ok(OwnedMessage::Text(data)) => info!("<-{}", data),
-					Ok(m) => info!("<-{:?}", m),
+					Ok(OwnedMessage::Close(_)) => break,
+					Ok(OwnedMessage::Text(data)) => info!("{}", data),
+					Ok(m) => info!("{:?}", m),
+					Err(e) => {
+						error!("{}", e);
+						break;
+					},
 				}
 			}
-			println!("recv_thread exit");
-			Ok(())
+			debug!("recv_thread exit");
 		});
 
-		let gen_thread = std::thread::spawn(move || -> Result<()> {
-			for i in 0..10 {
-				ss.send(OwnedMessage::Text(i.to_string())).map_err(|e| format!("{}", e))?;
-			}
-			println!("gen_thread exit");
-			Ok(())
-		});
-
-		let _ = gen_thread.join();
 		let _ = recv_thread.join();
 		let _ = send_thread.join();
 
