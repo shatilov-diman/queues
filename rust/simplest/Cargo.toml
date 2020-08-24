@@ -1,5 +1,5 @@
 [package]
-name = "ws_client_rust"
+name = "simplest"
 version = "0.1.0"
 authors = ["Dmitry Shatilov <shatilov.diman@gmail.com>"]
 edition = "2018"
@@ -9,5 +9,5 @@ edition = "2018"
 [dependencies]
 log = "^0.4"
 simple_logger = "^1.6"
-websocket = "^0.26"
+ws = "^0.9"
 
