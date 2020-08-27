@@ -63,7 +63,7 @@ fn main() -> Result<()> {
 		})
 	})?;
 
-	println!("exit");
+	info!("exit");
 	Ok(())
 }
 
